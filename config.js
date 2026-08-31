@@ -14,5 +14,5 @@ const CONFIG = {
   // Tabel Supabase Database untuk fitur "File Terbaru" di halaman utama.
   // Lihat panduan setup tabel & RLS policy di pesan penjelasan.
   RECENT_UPLOADS_TABLE: "recent_uploads",
-  RECENT_UPLOADS_LIMIT: 5
+  RECENT_UPLOADS_LIMIT: 15
 };
