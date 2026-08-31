@@ -107,9 +107,13 @@ function initUploadPage() {
   const copyBtn     = document.getElementById("copyBtn");
   const openBtn     = document.getElementById("openBtn");
   const resetBtn    = document.getElementById("resetBtn");
+  const showInRecentToggle = document.getElementById("showInRecentToggle");
 
   let selectedFile = null;
   let isUploading  = false;
+
+  // Tampilkan daftar "File Terbaru" saat halaman dibuka
+  loadRecentFiles();
 
   // --- Terapkan batasan tipe file dari config.js ke UI secara otomatis ---
   applyAllowedTypesToUI();
@@ -256,6 +260,22 @@ function initUploadPage() {
       uploadForm.style.display = "none";
       resultView.classList.add("show");
       showToast("File berhasil diunggah!", "success");
+
+      // Kalau toggle privasi aktif, catat file ini ke daftar "File Terbaru"
+      // publik. Kalau gagal (mis. tabel belum disiapkan di Supabase), jangan
+      // sampai mengganggu proses upload utama -> cukup diabaikan saja.
+      if (showInRecentToggle && showInRecentToggle.checked) {
+        try {
+          await sb.from(CONFIG.RECENT_UPLOADS_TABLE).insert({
+            file_id: fileId,
+            file_name: selectedFile.name,
+            file_size: selectedFile.size
+          });
+        } catch (err) {
+          console.error("Gagal mencatat ke file terbaru:", err);
+        }
+      }
+      loadRecentFiles();
 
     } catch (err) {
       console.error(err);
@@ -441,6 +461,80 @@ async function initDownloadPage() {
     dlErrorMsg.textContent = message;
     showToast(message, "error");
   }
+}
+
+/* ==========================================================================
+   FUNGSI: Muat & tampilkan 5 file terbaru yang diunggah (publik, opt-in
+   lewat toggle privasi). Data diambil dari tabel Supabase Database
+   CONFIG.RECENT_UPLOADS_TABLE. Kalau tabel belum disiapkan atau kosong,
+   kartu "File Terbaru" otomatis disembunyikan tanpa error yang mengganggu.
+   ========================================================================== */
+async function loadRecentFiles() {
+  const sectionEl = document.getElementById("recentFilesSection");
+  const listEl = document.getElementById("recentFilesList");
+  if (!sectionEl || !listEl) return;
+
+  try {
+    const { data, error } = await sb
+      .from(CONFIG.RECENT_UPLOADS_TABLE)
+      .select("file_id, file_name, file_size, created_at")
+      .order("created_at", { ascending: false })
+      .limit(CONFIG.RECENT_UPLOADS_LIMIT || 5);
+
+    if (error || !data || data.length === 0) {
+      sectionEl.style.display = "none";
+      return;
+    }
+
+    const basePath = window.location.pathname.replace(/index\.html$/, "").replace(/\/$/, "");
+    listEl.innerHTML = ""; // kosongkan sebelum render ulang
+
+    data.forEach((row) => {
+      const a = document.createElement("a");
+      a.className = "recent-item";
+      a.href = `${basePath}/download.html?id=${encodeURIComponent(row.file_id)}&name=${encodeURIComponent(row.file_name)}`;
+
+      const icon = document.createElement("div");
+      icon.className = "recent-icon";
+      icon.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>';
+
+      const meta = document.createElement("div");
+      meta.className = "recent-meta";
+      const nameEl = document.createElement("div");
+      nameEl.className = "recent-name";
+      nameEl.textContent = row.file_name; // textContent -> aman dari XSS
+      const subEl = document.createElement("div");
+      subEl.className = "recent-sub";
+      subEl.textContent = `${formatBytes(row.file_size || 0)} · ${formatRelativeTime(row.created_at)}`;
+      meta.appendChild(nameEl);
+      meta.appendChild(subEl);
+
+      const arrow = document.createElement("div");
+      arrow.className = "recent-arrow";
+      arrow.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
+
+      a.appendChild(icon);
+      a.appendChild(meta);
+      a.appendChild(arrow);
+      listEl.appendChild(a);
+    });
+
+    sectionEl.style.display = "block";
+  } catch (err) {
+    console.error("Gagal memuat file terbaru:", err);
+    sectionEl.style.display = "none";
+  }
+}
+
+/* ==========================================================================
+   UTIL: Format waktu relatif (mis. "5 menit lalu") dari timestamp ISO
+   ========================================================================== */
+function formatRelativeTime(isoStr) {
+  const diffSec = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
+  if (diffSec < 60) return "Baru saja";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} menit lalu`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} jam lalu`;
+  return `${Math.floor(diffSec / 86400)} hari lalu`;
 }
 
 /* ==========================================================================
