@@ -315,6 +315,57 @@ svg { display:block; }
 
 .upload-btn-wrap { margin-top:20px; }
 
+/* Toggle switch privasi */
+.toggle-row {
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
+  margin-top:16px; padding:12px 14px;
+  background: var(--input-bg); border:1px solid var(--glass-border);
+  border-radius:14px;
+}
+.toggle-row .toggle-label { font-size:12.5px; color: var(--text-soft); line-height:1.5; }
+.switch { position:relative; display:inline-block; width:44px; height:25px; flex-shrink:0; }
+.switch input { opacity:0; width:0; height:0; position:absolute; }
+.switch .slider {
+  position:absolute; inset:0; cursor:pointer;
+  background: color-mix(in srgb, var(--text-soft) 30%, transparent);
+  border-radius:999px; transition: background .2s ease;
+}
+.switch .slider::before {
+  content:""; position:absolute; height:19px; width:19px; left:3px; top:3px;
+  background:#fff; border-radius:50%; transition: transform .2s ease;
+  box-shadow:0 1px 3px rgba(0,0,0,.3);
+}
+.switch input:checked + .slider { background: linear-gradient(135deg, var(--accent-2), var(--accent)); }
+.switch input:checked + .slider::before { transform: translateX(19px); }
+
+/* Kartu "File Terbaru" */
+.recent-card { margin-top:20px; }
+.recent-title {
+  font-size:15px; font-weight:700; margin-bottom:14px;
+  display:flex; align-items:center; gap:8px; color: var(--text);
+}
+.recent-title svg { width:18px; height:18px; color: var(--accent); flex-shrink:0; }
+.recent-item {
+  display:flex; align-items:center; gap:12px; padding:12px;
+  border-radius:14px; background: var(--input-bg); border:1px solid var(--glass-border);
+  margin-bottom:10px; text-decoration:none; color: var(--text);
+  transition: transform .15s ease, border-color .15s ease;
+}
+.recent-item:last-child { margin-bottom:0; }
+.recent-item:hover { transform: translateY(-2px); border-color: var(--accent); }
+.recent-item .recent-icon {
+  width:36px; height:36px; border-radius:10px; flex-shrink:0;
+  background: linear-gradient(135deg, var(--accent-2), var(--accent)); color: var(--on-accent);
+  display:flex; align-items:center; justify-content:center;
+}
+.recent-item .recent-meta { flex:1; overflow:hidden; }
+.recent-item .recent-name {
+  font-weight:600; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.recent-item .recent-sub { font-size:12px; color: var(--text-soft); }
+.recent-item .recent-arrow { color: var(--text-soft); flex-shrink:0; }
+.recent-empty { font-size:13px; color: var(--text-soft); text-align:center; padding:8px 0; }
+
 /* Spinner */
 .spinner {
   width:16px; height:16px;
@@ -450,6 +501,14 @@ a:focus-visible, button:focus-visible, input:focus-visible {
         <input type="file" id="fileInput" hidden>
       </div>
 
+      <div class="toggle-row">
+        <span class="toggle-label">Tampilkan file Anda di daftar "File Terbaru" (bisa dilihat semua pengunjung situs)</span>
+        <label class="switch">
+          <input type="checkbox" id="showInRecentToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
       <div class="file-info" id="fileInfo">
         <div class="f-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
@@ -506,6 +565,15 @@ a:focus-visible, button:focus-visible, input:focus-visible {
       </div>
     </div>
 
+  </div>
+
+  <!-- ============== KARTU: FILE TERBARU ============== -->
+  <div class="card recent-card" id="recentFilesSection" style="display:none;">
+    <h3 class="recent-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+      File Terbaru
+    </h3>
+    <div id="recentFilesList"></div>
   </div>
 
   <footer class="credit">
