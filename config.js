@@ -20,10 +20,14 @@ const CONFIG = {
   RECAPTCHA_SITE_KEY: "",
 
   FILES_COLLECTION: "files",              // Nama collection Firestore untuk simpan file
+
+  // CATATAN: sengaja TIDAK ada ADMIN_EMAIL di sini. File ini publik (bisa
+  // dilihat semua orang lewat View Source), jadi email admin cukup ditulis
+  // sekali di Firestore Rules (Firebase Console) saja, tidak di file ini.
   // Batas ukuran file. Firestore membatasi 1 dokumen maksimum ~1MB (termasuk overhead),
   // jadi batas ini SENGAJA dibuat di bawah itu supaya selalu aman. Jangan dinaikkan
   // melebihi ~900KB kecuali kamu ganti skema penyimpanan.
-  MAX_FILE_SIZE: 999 * 1024,              // 999 KB
+  MAX_FILE_SIZE: 800 * 1024,              // 800 KB
   ALLOWED_EXTENSIONS: [".json"],          // Ekstensi file yang diizinkan diunggah
 
   RECENT_UPLOADS_LIMIT: 15,               // Jumlah maksimum item di "File Terbaru"
