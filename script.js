@@ -2,12 +2,24 @@
    SCRIPT.JS
    Logic untuk index.html (upload) dan download.html (download).
    File ini otomatis mendeteksi ada di halaman mana lewat elemen yang tersedia.
-   Membutuhkan config.js dan Supabase JS SDK dimuat SEBELUM file ini.
+   Membutuhkan config.js dan Firebase JS SDK (compat build) dimuat SEBELUM file ini.
    ========================================================================== */
 
-/* --- Init Supabase client (dari UMD bundle supabase-js) --- */
-const { createClient } = supabase;
-const sb = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+/* --- Init Firebase app + Firestore --- */
+firebase.initializeApp(CONFIG.FIREBASE_CONFIG);
+const db = firebase.firestore();
+
+/* --- Init App Check (opsional, hanya jalan kalau RECAPTCHA_SITE_KEY diisi) ---
+   App Check memastikan hanya request dari halaman web asli kamu yang bisa
+   menulis/membaca ke Firestore, ini pengganti "anti-bot/anti-DDoS" tanpa
+   perlu server sendiri. Kalau belum setup, baris ini otomatis dilewati. */
+if (CONFIG.RECAPTCHA_SITE_KEY && typeof firebase.appCheck === "function") {
+  try {
+    firebase.appCheck().activate(CONFIG.RECAPTCHA_SITE_KEY, true);
+  } catch (err) {
+    console.warn("App Check gagal diaktifkan:", err);
+  }
+}
 
 /* ==========================================================================
    UTIL: Toast Notification
@@ -122,7 +134,6 @@ function initUploadPage() {
     const exts = CONFIG.ALLOWED_EXTENSIONS || [];
 
     if (exts.length === 0) {
-      // Tidak ada pembatasan -> terima semua jenis file
       fileInput.removeAttribute("accept");
       document.getElementById("dzTitle").textContent = "Seret & lepas file di sini";
       document.getElementById("dzSub").textContent = "atau klik untuk memilih file dari perangkatmu";
@@ -130,10 +141,8 @@ function initUploadPage() {
       return;
     }
 
-    // accept="" dipakai browser untuk memfilter file picker (mis. ".json,.pdf,.csv")
     fileInput.setAttribute("accept", exts.join(","));
 
-    // Label yang ramah dibaca, mis. ".json" -> "JSON", digabung jadi "JSON, PDF, atau CSV"
     const labels = exts.map((e) => e.replace(".", "").toUpperCase());
     const readable = labels.length === 1
       ? labels[0]
@@ -180,19 +189,15 @@ function initUploadPage() {
   });
 
   function selectFile(file) {
-    // Validasi: file kosong
     if (!file || file.size === 0) {
       showToast("File kosong tidak dapat diunggah.", "error");
       return;
     }
-    // Validasi: ukuran maksimum dari config.js
     if (file.size > CONFIG.MAX_FILE_SIZE) {
       showToast(`Ukuran file melebihi batas maksimum (${formatBytes(CONFIG.MAX_FILE_SIZE)}).`, "error");
       return;
     }
 
-    // Validasi: hanya ekstensi tertentu yang diizinkan (diatur di config.js)
-    // Array kosong berarti semua tipe file diizinkan.
     const exts = CONFIG.ALLOWED_EXTENSIONS || [];
     if (exts.length > 0) {
       const nameLower = file.name.toLowerCase();
@@ -204,7 +209,7 @@ function initUploadPage() {
     }
 
     selectedFile = file;
-    fName.textContent = file.name; // textContent, aman dari XSS
+    fName.textContent = file.name;
     fSize.textContent = formatBytes(file.size);
     fileInfo.classList.add("show");
     uploadBtn.disabled = false;
@@ -232,6 +237,16 @@ function initUploadPage() {
       return;
     }
 
+    // --- Cooldown anti-spam klik berulang (proteksi ringan di sisi client) ---
+    const cooldownMs = CONFIG.UPLOAD_COOLDOWN_MS || 0;
+    const lastUpload = parseInt(localStorage.getItem("dropshare-last-upload") || "0", 10);
+    const sinceLast = Date.now() - lastUpload;
+    if (cooldownMs > 0 && sinceLast < cooldownMs) {
+      const waitSec = Math.ceil((cooldownMs - sinceLast) / 1000);
+      showToast(`Tunggu ${waitSec} detik sebelum mengunggah file lagi.`, "error");
+      return;
+    }
+
     isUploading = true;
     uploadBtn.disabled = true;
     fRemove.style.pointerEvents = "none";
@@ -244,40 +259,33 @@ function initUploadPage() {
     uploadBtnText.appendChild(spinner);
     uploadBtnText.appendChild(document.createTextNode(" Mengunggah..."));
 
-    try {
-      const fileId = await uploadToSupabase(selectedFile, (pct) => {
-        progressFill.style.width = pct + "%";
-        progressPct.textContent = Math.round(pct) + "%";
-        progressFill.classList.toggle("shimmer", pct >= 90);
-      });
+    // Progress bar palsu (Firestore write tidak punya event progress asli),
+    // supaya UX tetap terasa responsif untuk file kecil.
+    let fakePct = 0;
+    const fakeProgress = setInterval(() => {
+      fakePct = Math.min(fakePct + 15, 90);
+      progressFill.style.width = fakePct + "%";
+      progressPct.textContent = Math.round(fakePct) + "%";
+    }, 120);
 
-      // Link yang dibagikan mengarah ke download.html. Path penyimpanan file di
-      // storage TETAP memakai id acak (bukan nama asli), namun nama file asli
-      // disertakan sebagai parameter terpisah agar saat diunduh, nama filenya
-      // sama seperti yang diunggah pengguna.
-      const shareUrl = `${window.location.origin}${window.location.pathname.replace(/index\.html$/, "").replace(/\/$/, "")}/download.html?id=${encodeURIComponent(fileId)}&name=${encodeURIComponent(selectedFile.name)}`;
+    try {
+      const fileId = await uploadToFirestore(selectedFile, showInRecentToggle && showInRecentToggle.checked);
+
+      clearInterval(fakeProgress);
+      progressFill.style.width = "100%";
+      progressPct.textContent = "100%";
+      localStorage.setItem("dropshare-last-upload", String(Date.now()));
+
+      const shareUrl = `${window.location.origin}${window.location.pathname.replace(/index\.html$/, "").replace(/\/$/, "")}/download.html?id=${encodeURIComponent(fileId)}`;
       resultLink.value = shareUrl;
       uploadForm.style.display = "none";
       resultView.classList.add("show");
       showToast("File berhasil diunggah!", "success");
 
-      // Kalau toggle privasi aktif, catat file ini ke daftar "File Terbaru"
-      // publik. Kalau gagal (mis. tabel belum disiapkan di Supabase), jangan
-      // sampai mengganggu proses upload utama -> cukup diabaikan saja.
-      if (showInRecentToggle && showInRecentToggle.checked) {
-        try {
-          await sb.from(CONFIG.RECENT_UPLOADS_TABLE).insert({
-            file_id: fileId,
-            file_name: selectedFile.name,
-            file_size: selectedFile.size
-          });
-        } catch (err) {
-          console.error("Gagal mencatat ke file terbaru:", err);
-        }
-      }
       loadRecentFiles();
 
     } catch (err) {
+      clearInterval(fakeProgress);
       console.error(err);
       showToast(err.message || "Gagal mengunggah file. Coba lagi.", "error");
       progressLabel.textContent = "Gagal mengunggah";
@@ -315,58 +323,61 @@ function initUploadPage() {
 }
 
 /* ==========================================================================
-   FUNGSI: Upload file ke Supabase Storage dengan progress realtime.
-   Supabase-js tidak menyediakan event progress bawaan, jadi kita panggil
-   REST endpoint Storage API secara langsung lewat XMLHttpRequest agar bisa
-   memantau xhr.upload.onprogress.
+   FUNGSI: Baca file sebagai teks (Promise wrapper untuk FileReader)
    ========================================================================== */
-async function uploadToSupabase(file, onProgress) {
-  // Buat nama file acak (UUID) supaya tidak bentrok & tidak membocorkan nama asli
-  const ext = file.name.includes(".") ? "." + file.name.split(".").pop().replace(/[^a-zA-Z0-9]/g, "") : "";
-  const fileId = crypto.randomUUID() + ext;
-
-  const uploadUrl = `${CONFIG.SUPABASE_URL}/storage/v1/object/${encodeURIComponent(CONFIG.STORAGE_BUCKET)}/${encodeURIComponent(fileId)}`;
-
+function readFileAsText(file) {
   return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", uploadUrl, true);
-    xhr.setRequestHeader("Authorization", `Bearer ${CONFIG.SUPABASE_ANON_KEY}`);
-    xhr.setRequestHeader("apikey", CONFIG.SUPABASE_ANON_KEY);
-    xhr.setRequestHeader("x-upsert", "false"); // hindari overwrite file yang sudah ada
-    xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-    xhr.setRequestHeader("cache-control", "3600");
-
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress((e.loaded / e.total) * 100);
-    };
-
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        onProgress(100);
-        resolve(fileId);
-      } else {
-        let msg = "Upload gagal. Periksa konfigurasi Supabase atau koneksimu.";
-        try {
-          const parsed = JSON.parse(xhr.responseText);
-          if (parsed.message) msg = parsed.message;
-        } catch (_) { /* biarkan pesan default */ }
-        reject(new Error(msg));
-      }
-    };
-
-    xhr.onerror = () => reject(new Error("Koneksi terputus saat mengunggah. Coba lagi."));
-    xhr.onabort = () => reject(new Error("Upload dibatalkan."));
-
-    xhr.send(file);
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Gagal membaca file."));
+    reader.readAsText(file);
   });
+}
+
+/* ==========================================================================
+   FUNGSI: Upload file ke Firestore.
+   Isi file disimpan sebagai field string di dalam 1 dokumen. Firestore
+   membatasi ukuran dokumen ~1MB, karena itu file divalidasi terhadap
+   CONFIG.MAX_FILE_SIZE (jauh di bawah limit itu) sebelum dikirim.
+   ========================================================================== */
+async function uploadToFirestore(file, isPublic) {
+  const content = await readFileAsText(file);
+
+  // Validasi tambahan: pastikan isi file benar-benar JSON valid,
+  // bukan cuma mengandalkan ekstensi nama file.
+  try {
+    JSON.parse(content);
+  } catch (e) {
+    throw new Error("Isi file bukan JSON yang valid.");
+  }
+
+  const docData = {
+    name: file.name,
+    content: content,
+    size: file.size,
+    type: file.type || "application/json",
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    public: !!isPublic
+  };
+
+  try {
+    const ref = await db.collection(CONFIG.FILES_COLLECTION).add(docData);
+    return ref.id;
+  } catch (err) {
+    console.error(err);
+    if (err.code === "permission-denied") {
+      throw new Error("Upload ditolak oleh aturan keamanan (cek Firestore Rules / App Check).");
+    }
+    throw new Error("Upload gagal. Periksa koneksi atau konfigurasi Firebase.");
+  }
 }
 
 /* ==========================================================================
    HALAMAN DOWNLOAD (download.html)
    Alur:
    1. Ambil parameter ?id=
-   2. Bentuk public URL dari Supabase Storage
-   3. Cek file ada (HEAD request) -> jika ok, trigger auto-download
+   2. Ambil dokumen dari Firestore berdasarkan id tsb
+   3. Bentuk file Blob dari isi dokumen -> trigger auto-download
    4. Tampilkan error yang jelas jika gagal / offline
    ========================================================================== */
 async function initDownloadPage() {
@@ -385,7 +396,6 @@ async function initDownloadPage() {
 
   const params = new URLSearchParams(window.location.search);
   const fileId = params.get("id");
-  const originalName = params.get("name"); // nama file asli (opsional, untuk penamaan saat unduh)
 
   if (!fileId) {
     return showError("Link tidak valid. Parameter id tidak ditemukan.");
@@ -395,59 +405,55 @@ async function initDownloadPage() {
     return showError("Tidak ada koneksi internet. Periksa jaringanmu dan coba lagi.");
   }
 
+  let objectUrl = null;
+
   try {
-    // Ambil public URL dari Supabase Storage. Opsi "download" dengan nilai
-    // string akan membuat browser menyimpan file dengan nama tersebut
-    // (sama seperti nama asli saat diunggah), bukan nama UUID di storage.
-    const { data } = sb.storage
-      .from(CONFIG.STORAGE_BUCKET)
-      .getPublicUrl(fileId, { download: originalName || true });
+    const snap = await db.collection(CONFIG.FILES_COLLECTION).doc(fileId).get();
 
-    const publicUrl = data && data.publicUrl;
-    if (!publicUrl) throw new Error("Tidak dapat membentuk URL file.");
-
-    // Cek dulu apakah file benar-benar ada, sekaligus ambil info ukuran &
-    // tanggal upload dari response header (Content-Length, Last-Modified),
-    // agar tidak menampilkan halaman error mentah dari Supabase.
-    const check = await fetch(publicUrl, { method: "HEAD" }).catch(() => null);
-    if (!check || !check.ok) {
+    if (!snap.exists) {
       return showError("File tidak ditemukan. Link mungkin sudah kedaluwarsa atau dihapus.");
     }
 
-    const sizeHeader = check.headers.get("content-length");
-    const dateHeader = check.headers.get("last-modified");
+    const data = snap.data();
+    const fileName = data.name || `${fileId}.json`;
+    const fileSize = typeof data.size === "number" ? data.size : new Blob([data.content || ""]).size;
+    const createdAt = data.createdAt && data.createdAt.toDate ? data.createdAt.toDate() : null;
 
-    // Tampilkan kartu info file SEBELUM unduhan benar-benar dimulai
-    dlFileName.textContent = originalName || fileId;
-    dlFileSize.textContent = sizeHeader ? formatBytes(parseInt(sizeHeader, 10)) : "Ukuran tidak diketahui";
-    dlFileDate.textContent = dateHeader ? formatUploadDate(dateHeader) : "Tanggal tidak diketahui";
+    const blob = new Blob([data.content || ""], { type: data.type || "application/json" });
+    objectUrl = URL.createObjectURL(blob);
+
+    dlFileName.textContent = fileName;
+    dlFileSize.textContent = formatBytes(fileSize);
+    dlFileDate.textContent = createdAt ? formatUploadDate(createdAt) : "Tanggal tidak diketahui";
 
     dlLoading.style.display = "none";
     dlReady.style.display = "block";
     dlReadyStatus.textContent = "Menyiapkan unduhan...";
 
-    // Beri jeda sebentar supaya pengguna sempat melihat info file sebelum
-    // browser mulai mengunduh.
     await new Promise((resolve) => setTimeout(resolve, 1100));
 
-    triggerDownload(publicUrl);
+    triggerDownload(objectUrl, fileName);
 
-    // Update tampilan jadi status "selesai memicu unduhan"
     dlReadySpinner.style.display = "none";
     dlReadyStatus.textContent = "Unduhan dimulai. Jika tidak berjalan otomatis, klik tombol di bawah.";
     dlReadyIcon.outerHTML = '<svg id="dlReadyIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
     dlManualWrap.style.display = "block";
 
-    dlManualBtn.addEventListener("click", () => triggerDownload(publicUrl));
+    dlManualBtn.addEventListener("click", () => triggerDownload(objectUrl, fileName));
 
   } catch (err) {
     console.error(err);
-    showError("Terjadi kesalahan saat menyiapkan file. Coba lagi nanti.");
+    if (err.code === "permission-denied") {
+      showError("Akses ditolak oleh aturan keamanan Firestore.");
+    } else {
+      showError("Terjadi kesalahan saat menyiapkan file. Coba lagi nanti.");
+    }
   }
 
-  function triggerDownload(url) {
+  function triggerDownload(url, name) {
     const a = document.createElement("a");
     a.href = url;
+    a.download = name;
     a.rel = "noopener";
     document.body.appendChild(a);
     a.click();
@@ -464,10 +470,9 @@ async function initDownloadPage() {
 }
 
 /* ==========================================================================
-   FUNGSI: Muat & tampilkan 5 file terbaru yang diunggah (publik, opt-in
-   lewat toggle privasi). Data diambil dari tabel Supabase Database
-   CONFIG.RECENT_UPLOADS_TABLE. Kalau tabel belum disiapkan atau kosong,
-   kartu "File Terbaru" otomatis disembunyikan tanpa error yang mengganggu.
+   FUNGSI: Muat & tampilkan file terbaru yang diunggah (publik, opt-in
+   lewat toggle privasi). Data diambil dari Firestore, field `public == true`.
+   Kalau collection kosong, kartu "File Terbaru" otomatis disembunyikan.
    ========================================================================== */
 async function loadRecentFiles() {
   const sectionEl = document.getElementById("recentFilesSection");
@@ -475,24 +480,25 @@ async function loadRecentFiles() {
   if (!sectionEl || !listEl) return;
 
   try {
-    const { data, error } = await sb
-      .from(CONFIG.RECENT_UPLOADS_TABLE)
-      .select("file_id, file_name, file_size, created_at")
-      .order("created_at", { ascending: false })
-      .limit(CONFIG.RECENT_UPLOADS_LIMIT || 5);
+    const snap = await db.collection(CONFIG.FILES_COLLECTION)
+      .where("public", "==", true)
+      .orderBy("createdAt", "desc")
+      .limit(CONFIG.RECENT_UPLOADS_LIMIT || 15)
+      .get();
 
-    if (error || !data || data.length === 0) {
+    if (snap.empty) {
       sectionEl.style.display = "none";
       return;
     }
 
     const basePath = window.location.pathname.replace(/index\.html$/, "").replace(/\/$/, "");
-    listEl.innerHTML = ""; // kosongkan sebelum render ulang
+    listEl.innerHTML = "";
 
-    data.forEach((row) => {
+    snap.forEach((doc) => {
+      const row = doc.data();
       const a = document.createElement("a");
       a.className = "recent-item";
-      a.href = `${basePath}/download.html?id=${encodeURIComponent(row.file_id)}&name=${encodeURIComponent(row.file_name)}`;
+      a.href = `${basePath}/download.html?id=${encodeURIComponent(doc.id)}`;
 
       const icon = document.createElement("div");
       icon.className = "recent-icon";
@@ -502,10 +508,11 @@ async function loadRecentFiles() {
       meta.className = "recent-meta";
       const nameEl = document.createElement("div");
       nameEl.className = "recent-name";
-      nameEl.textContent = row.file_name; // textContent -> aman dari XSS
+      nameEl.textContent = row.name;
       const subEl = document.createElement("div");
       subEl.className = "recent-sub";
-      subEl.textContent = `${formatBytes(row.file_size || 0)} · ${formatRelativeTime(row.created_at)}`;
+      const createdAt = row.createdAt && row.createdAt.toDate ? row.createdAt.toDate() : null;
+      subEl.textContent = `${formatBytes(row.size || 0)} · ${createdAt ? formatRelativeTime(createdAt) : "-"}`;
       meta.appendChild(nameEl);
       meta.appendChild(subEl);
 
@@ -527,10 +534,10 @@ async function loadRecentFiles() {
 }
 
 /* ==========================================================================
-   UTIL: Format waktu relatif (mis. "5 menit lalu") dari timestamp ISO
+   UTIL: Format waktu relatif (mis. "5 menit lalu") dari objek Date
    ========================================================================== */
-function formatRelativeTime(isoStr) {
-  const diffSec = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
+function formatRelativeTime(date) {
+  const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
   if (diffSec < 60) return "Baru saja";
   if (diffSec < 3600) return `${Math.floor(diffSec / 60)} menit lalu`;
   if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} jam lalu`;
@@ -538,12 +545,11 @@ function formatRelativeTime(isoStr) {
 }
 
 /* ==========================================================================
-   UTIL: Format tanggal upload (dari header Last-Modified) ke format Indonesia
+   UTIL: Format tanggal upload (dari objek Date) ke format Indonesia
    ========================================================================== */
-function formatUploadDate(httpDateStr) {
+function formatUploadDate(date) {
   try {
-    const d = new Date(httpDateStr);
-    return d.toLocaleDateString("id-ID", {
+    return date.toLocaleDateString("id-ID", {
       day: "numeric", month: "long", year: "numeric",
       hour: "2-digit", minute: "2-digit"
     });
