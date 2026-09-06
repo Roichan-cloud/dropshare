@@ -361,7 +361,7 @@ a:focus-visible, button:focus-visible, input:focus-visible {
   </div>
 
   <footer class="credit">
-    Dibangun dengan Supabase Storage · DropShare<br>
+    Dibangun dengan Firebase Firestore · DropShare<br>
     <a href="privacy.html">Kebijakan Privasi</a><span class="sep">·</span><a href="terms.html">Ketentuan Layanan</a>
   </footer>
 </div>
@@ -369,8 +369,10 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 <!-- Toast container -->
 <div class="toast-wrap" id="toastWrap"></div>
 
-<!-- Urutan penting: Supabase SDK -> config.js -> script.js -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<!-- Urutan penting: Firebase SDK -> config.js -> script.js -->
+<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-check-compat.js"></script>
 <script src="config.js"></script>
 <script src="script.js"></script>
 </body>
