@@ -9,6 +9,11 @@
 <!-- Favicon -->
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="icon" href="favicon.png" type="image/png">
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#65a30d">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 
 <!-- Open Graph / preview link untuk WhatsApp, Telegram, dll -->
@@ -139,6 +144,33 @@ svg { display:block; }
 }
 .theme-switch button:hover { transform: translateY(-2px) scale(1.05); }
 .theme-switch button.active { border-color: var(--accent); }
+
+/* --- Install App Banner (custom, tampil kalau browser support PWA install) --- */
+.install-banner {
+  width:100%; max-width:480px; display:flex; align-items:center; gap:12px;
+  background: var(--glass-bg); border:1px solid var(--glass-border);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-radius:18px; padding:12px 14px; margin: 4px 0 18px;
+  box-shadow: var(--card-shadow); animation: rise .4s ease;
+}
+.install-banner .ib-icon {
+  width:44px; height:44px; border-radius:12px; flex-shrink:0;
+  background: linear-gradient(135deg, var(--accent-2), var(--accent)); color: var(--on-accent);
+  display:flex; align-items:center; justify-content:center;
+}
+.install-banner .ib-meta { flex:1; min-width:0; }
+.install-banner .ib-title { font-weight:700; font-size:14px; }
+.install-banner .ib-sub { font-size:11.5px; color: var(--text-soft); }
+.install-banner .ib-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.install-banner .ib-install {
+  padding:9px 16px; border-radius:11px; border:none; cursor:pointer;
+  background: linear-gradient(135deg, var(--accent-2), var(--accent)); color: var(--on-accent);
+  font-weight:700; font-size:13px; font-family:'Inter',sans-serif;
+}
+.install-banner .ib-close {
+  width:30px; height:30px; border-radius:50%; border:none; background:transparent;
+  color: var(--text-soft); cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
 .ts-light { background: linear-gradient(135deg,#ffffff,#dcdfe6); color:#5b6070; }
 .ts-lime  { background: linear-gradient(135deg,#bef264,#65a30d); }
 .ts-dark  { background: linear-gradient(135deg,#3a3f36,#0b0e0a); }
@@ -476,6 +508,23 @@ a:focus-visible, button:focus-visible, input:focus-visible {
     <button class="ts-dark" data-theme-btn="dark" title="Mode Gelap" aria-label="Mode Gelap">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
     </button>
+  </div>
+
+  <!-- ============== INSTALL APP BANNER (custom, hidden by default) ============== -->
+  <div class="install-banner hidden" id="installBanner" style="display:none;">
+    <div class="ib-icon">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6 15.4 6.4M8.6 13.4l6.8 4.2"/></svg>
+    </div>
+    <div class="ib-meta">
+      <div class="ib-title">DropShare</div>
+      <div class="ib-sub">Install biar bisa upload langsung dari tombol Bagikan</div>
+    </div>
+    <div class="ib-actions">
+      <button class="ib-install" id="installBtn">Instal</button>
+      <button class="ib-close" id="installDismissBtn" aria-label="Tutup">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
   </div>
 
   <!-- ============== BRAND ============== -->
