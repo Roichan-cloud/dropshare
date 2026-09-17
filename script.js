@@ -88,6 +88,63 @@ window.addEventListener("offline", () => showToast("Koneksi internet terputus.",
 window.addEventListener("online", () => showToast("Koneksi internet tersambung kembali.", "success"));
 
 /* ==========================================================================
+   PWA: Registrasi Service Worker (untuk fitur Share Target)
+   ========================================================================== */
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch((err) => {
+      console.warn("Gagal mendaftarkan service worker:", err);
+    });
+  });
+}
+
+/* ==========================================================================
+   PWA: Banner "Instal Aplikasi" custom (dipakai di index.html)
+   Memakai event beforeinstallprompt bawaan browser, ditampilkan lewat
+   UI custom bertema DropShare (bukan bar bawaan browser).
+   ========================================================================== */
+(function initInstallBanner() {
+  const banner = document.getElementById("installBanner");
+  if (!banner) return; // halaman ini tidak punya banner install (mis. download.html)
+
+  const installBtn = document.getElementById("installBtn");
+  const dismissBtn = document.getElementById("installDismissBtn");
+  let deferredPrompt = null;
+
+  // Jangan tampilkan lagi kalau user pernah menutupnya manual
+  const dismissed = localStorage.getItem("dropshare-install-dismissed") === "1";
+
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (!dismissed) {
+      banner.style.display = "flex";
+    }
+  });
+
+  installBtn.addEventListener("click", async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      showToast("DropShare sedang diinstal...", "success");
+    }
+    deferredPrompt = null;
+    banner.style.display = "none";
+  });
+
+  dismissBtn.addEventListener("click", () => {
+    banner.style.display = "none";
+    localStorage.setItem("dropshare-install-dismissed", "1");
+  });
+
+  window.addEventListener("appinstalled", () => {
+    banner.style.display = "none";
+    showToast("DropShare berhasil diinstal! Coba bagikan file JSON dari WhatsApp.", "success");
+  });
+})();
+
+/* ==========================================================================
    ROUTER SEDERHANA
    index.html punya elemen #uploadView -> jalankan initUploadPage()
    download.html punya elemen #downloadView -> jalankan initDownloadPage()
