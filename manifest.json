@@ -25,7 +25,8 @@
           "name": "file",
           "accept": [
             "application/json", ".json",
-            ".fbx", "application/octet-stream", "model/vnd.autodesk.fbx"
+            ".fbx", "application/octet-stream",
+            "*/*"
           ]
         }
       ]
