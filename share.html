@@ -250,6 +250,15 @@ async function collectDebugInfo() {
         const cache = await caches.open("dropshare-share-target-v1");
         const keys = await cache.keys();
         lines.push("Isi cache share-target: " + JSON.stringify(keys.map((k) => k.url)));
+
+        const debugLogRes = await cache.match("debug-log");
+        if (debugLogRes) {
+          const debugText = await debugLogRes.text();
+          lines.push("--- Catatan dari sw.js ---");
+          lines.push(debugText);
+        } else {
+          lines.push("--- Tidak ada catatan dari sw.js (POST mungkin tidak sampai ke sw.js) ---");
+        }
       }
     }
   } catch (err) {
