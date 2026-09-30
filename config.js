@@ -30,7 +30,7 @@ const CONFIG = {
   MAX_FILE_SIZE: 800 * 1024,              // 800 KB
   ALLOWED_EXTENSIONS: [".json",".fbx"],          // Ekstensi file yang diizinkan diunggah
 
-  RECENT_UPLOADS_LIMIT: 15,               // Jumlah maksimum item di "File Terbaru"
+  RECENT_UPLOADS_LIMIT: 150,               // Jumlah maksimum item di "File Terbaru"
 
   // Jeda minimum antar-upload dari browser yang sama (anti-spam klik berulang).
   // Ini proteksi ringan di sisi client, BUKAN pengganti App Check / Firestore Rules.
