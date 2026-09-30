@@ -41,6 +41,8 @@ async function handleShareTarget(event) {
     const keys = [];
     for (const key of formData.keys()) keys.push(key);
     const file = formData.get("file");
+    const titleVal = formData.get("title");
+    const textVal = formData.get("text");
 
     // Catat apa yang benar-benar diterima, supaya bisa dilihat di layar
     // share.html tanpa perlu laptop/USB debugging.
@@ -50,7 +52,9 @@ async function handleShareTarget(event) {
       hasFile: !!file,
       fileName: file ? file.name : null,
       fileSize: file ? file.size : null,
-      fileType: file ? file.type : null
+      fileType: file ? file.type : null,
+      titleValue: typeof titleVal === "string" ? titleVal : null,
+      textValue: typeof textVal === "string" ? textVal : null
     }), { headers: { "Content-Type": "application/json" } }));
 
     if (file) {
