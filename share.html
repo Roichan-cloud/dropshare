@@ -177,6 +177,7 @@ p.sub { color: var(--text-soft); font-size:13.5px; margin-bottom: 18px; }
     </div>
     <h1>Gagal Menyimpan</h1>
     <p class="sub" id="errorMsg">Terjadi kesalahan saat memproses file.</p>
+    <pre id="debugInfo" style="text-align:left; font-size:10.5px; background:var(--input-bg); border:1px solid var(--glass-border); border-radius:10px; padding:10px; margin-bottom:16px; white-space:pre-wrap; word-break:break-all; color:var(--text-soft); max-height:160px; overflow:auto;"></pre>
     <button class="btn btn-outline" id="backBtn">Kembali ke DropShare</button>
   </div>
 
@@ -220,6 +221,41 @@ function formatBytes(bytes) {
 function showError(message) {
   errorMsg.textContent = message;
   showState(stateError);
+  collectDebugInfo();
+}
+
+async function collectDebugInfo() {
+  const debugEl = document.getElementById("debugInfo");
+  const lines = [];
+  try {
+    lines.push("URL: " + window.location.href);
+    lines.push("SW support: " + ("serviceWorker" in navigator));
+
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      lines.push("SW terdaftar: " + !!reg);
+      if (reg) {
+        lines.push("SW scope: " + reg.scope);
+        lines.push("SW active: " + !!reg.active);
+        lines.push("SW waiting: " + !!reg.waiting);
+        lines.push("SW installing: " + !!reg.installing);
+      }
+      lines.push("SW controller halaman ini: " + !!navigator.serviceWorker.controller);
+    }
+
+    if ("caches" in window) {
+      const names = await caches.keys();
+      lines.push("Daftar cache: " + JSON.stringify(names));
+      if (names.includes("dropshare-share-target-v1")) {
+        const cache = await caches.open("dropshare-share-target-v1");
+        const keys = await cache.keys();
+        lines.push("Isi cache share-target: " + JSON.stringify(keys.map((k) => k.url)));
+      }
+    }
+  } catch (err) {
+    lines.push("Error saat ambil debug info: " + err.message);
+  }
+  debugEl.textContent = lines.join("\n");
 }
 
 function triggerLocalDownload(blob, fileName) {
