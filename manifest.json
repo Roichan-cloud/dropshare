@@ -23,7 +23,10 @@
       "files": [
         {
           "name": "file",
-          "accept": ["application/json", ".json"]
+          "accept": [
+            "application/json", ".json",
+            ".fbx", "application/octet-stream", "model/vnd.autodesk.fbx"
+          ]
         }
       ]
     }
