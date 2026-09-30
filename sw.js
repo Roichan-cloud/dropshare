@@ -33,12 +33,27 @@ self.addEventListener("fetch", (event) => {
 });
 
 async function handleShareTarget(event) {
+  const cache = await caches.open(SHARE_CACHE);
+
   try {
     const formData = await event.request.clone().formData();
+
+    const keys = [];
+    for (const key of formData.keys()) keys.push(key);
     const file = formData.get("file");
 
+    // Catat apa yang benar-benar diterima, supaya bisa dilihat di layar
+    // share.html tanpa perlu laptop/USB debugging.
+    await cache.put("debug-log", new Response(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      formDataKeys: keys,
+      hasFile: !!file,
+      fileName: file ? file.name : null,
+      fileSize: file ? file.size : null,
+      fileType: file ? file.type : null
+    }), { headers: { "Content-Type": "application/json" } }));
+
     if (file) {
-      const cache = await caches.open(SHARE_CACHE);
       const fileResponse = new Response(file, {
         headers: {
           "Content-Type": file.type || "application/json",
@@ -52,6 +67,13 @@ async function handleShareTarget(event) {
     // navigasi normal (halaman statis biasa) setelah POST selesai diproses.
     return Response.redirect("./share.html?from-share=1", 303);
   } catch (err) {
+    try {
+      await cache.put("debug-log", new Response(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        error: err.message,
+        stack: err.stack
+      }), { headers: { "Content-Type": "application/json" } }));
+    } catch (e2) { /* abaikan */ }
     return Response.redirect("./share.html?from-share=error", 303);
   }
 }
