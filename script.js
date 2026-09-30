@@ -187,6 +187,37 @@ function initUploadPage() {
   // --- Terapkan batasan tipe file dari config.js ke UI secara otomatis ---
   applyAllowedTypesToUI();
 
+  // --- Ambil file "titipan" dari share.html (kalau datang dari tombol
+  //     "Ubah File Ini Jadi Link"). File TIDAK otomatis diunggah - cuma
+  //     otomatis dipasang ke form, user tetap harus klik "Unggah File". ---
+  loadFileFromShareHandoff();
+
+  async function loadFileFromShareHandoff() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("from-share") !== "1") return;
+    if (!("caches" in window)) return;
+
+    try {
+      const cache = await caches.open("dropshare-share-target-v1");
+      const res = await cache.match("shared-file");
+      if (!res) return;
+
+      const blob = await res.blob();
+      const rawName = res.headers.get("X-File-Name");
+      const fileName = rawName ? decodeURIComponent(rawName) : "shared.json";
+      await cache.delete("shared-file");
+
+      const file = new File([blob], fileName, { type: blob.type || "application/json" });
+      selectFile(file);
+      showToast("File dari WhatsApp siap diunggah. Tekan \"Unggah File\" untuk buat link.", "info");
+
+      // Bersihkan parameter URL biar rapi & gak ke-reload kalau user refresh
+      window.history.replaceState({}, "", window.location.pathname);
+    } catch (err) {
+      console.warn("Gagal memuat file titipan dari share.html:", err);
+    }
+  }
+
   function applyAllowedTypesToUI() {
     const exts = CONFIG.ALLOWED_EXTENSIONS || [];
 
@@ -326,18 +357,23 @@ function initUploadPage() {
     }, 120);
 
     try {
-      const fileId = await uploadToFirestore(selectedFile, showInRecentToggle && showInRecentToggle.checked);
+      const result = await uploadToFirestore(selectedFile, showInRecentToggle && showInRecentToggle.checked);
 
       clearInterval(fakeProgress);
       progressFill.style.width = "100%";
       progressPct.textContent = "100%";
       localStorage.setItem("dropshare-last-upload", String(Date.now()));
 
-      const shareUrl = `${window.location.origin}${window.location.pathname.replace(/index\.html$/, "").replace(/\/$/, "")}/download.html?id=${encodeURIComponent(fileId)}`;
+      const shareUrl = `${window.location.origin}${window.location.pathname.replace(/index\.html$/, "").replace(/\/$/, "")}/download.html?id=${encodeURIComponent(result.id)}`;
       resultLink.value = shareUrl;
       uploadForm.style.display = "none";
       resultView.classList.add("show");
-      showToast("File berhasil diunggah!", "success");
+
+      if (result.deduped) {
+        showToast("File yang sama sudah pernah diunggah — pakai link yang sudah ada (hemat kuota).", "info");
+      } else {
+        showToast("File berhasil diunggah!", "success");
+      }
 
       loadRecentFiles();
 
@@ -392,10 +428,27 @@ function readFileAsText(file) {
 }
 
 /* ==========================================================================
+   FUNGSI: Hitung hash SHA-256 dari isi file (untuk deteksi duplikat).
+   Dua file dengan isi persis sama akan selalu menghasilkan hash yang sama,
+   walau nama filenya berbeda.
+   ========================================================================== */
+async function sha256Hex(text) {
+  const enc = new TextEncoder().encode(text);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", enc);
+  return Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/* ==========================================================================
    FUNGSI: Upload file ke Firestore.
    Isi file disimpan sebagai field string di dalam 1 dokumen. Firestore
    membatasi ukuran dokumen ~1MB, karena itu file divalidasi terhadap
    CONFIG.MAX_FILE_SIZE (jauh di bawah limit itu) sebelum dikirim.
+
+   ANTI-DUPLIKAT: sebelum membuat dokumen baru, dicek dulu apakah sudah ada
+   file dengan isi (hash) yang sama di antara file-file publik. Kalau ada,
+   file baru TIDAK dibuat - cukup pakai link yang sudah ada, supaya storage
+   gratis tidak cepat habis karena file yang sama diupload berulang kali.
+   Pengecekan ini hanya berlaku untuk file publik (lihat catatan di rules).
    ========================================================================== */
 async function uploadToFirestore(file, isPublic) {
   const content = await readFileAsText(file);
@@ -408,18 +461,34 @@ async function uploadToFirestore(file, isPublic) {
     throw new Error("Isi file bukan JSON yang valid.");
   }
 
-  const docData = {
-    name: file.name,
-    content: content,
-    size: file.size,
-    type: file.type || "application/json",
-    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    public: !!isPublic
-  };
+  const contentHash = await sha256Hex(content);
 
   try {
+    // --- Cek duplikat (hanya di antara file publik) ---
+    if (isPublic) {
+      const dupSnap = await db.collection(CONFIG.FILES_COLLECTION)
+        .where("public", "==", true)
+        .where("contentHash", "==", contentHash)
+        .limit(1)
+        .get();
+
+      if (!dupSnap.empty) {
+        return { id: dupSnap.docs[0].id, deduped: true };
+      }
+    }
+
+    const docData = {
+      name: file.name,
+      content: content,
+      size: file.size,
+      type: file.type || "application/json",
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      public: !!isPublic,
+      contentHash: contentHash
+    };
+
     const ref = await db.collection(CONFIG.FILES_COLLECTION).add(docData);
-    return ref.id;
+    return { id: ref.id, deduped: false };
   } catch (err) {
     console.error(err);
     if (err.code === "permission-denied") {
