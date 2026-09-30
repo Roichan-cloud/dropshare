@@ -28,7 +28,7 @@ const CONFIG = {
   // jadi batas ini SENGAJA dibuat di bawah itu supaya selalu aman. Jangan dinaikkan
   // melebihi ~900KB kecuali kamu ganti skema penyimpanan.
   MAX_FILE_SIZE: 800 * 1024,              // 800 KB
-  ALLOWED_EXTENSIONS: [".json"],          // Ekstensi file yang diizinkan diunggah
+  ALLOWED_EXTENSIONS: [".json",".fbx"],          // Ekstensi file yang diizinkan diunggah
 
   RECENT_UPLOADS_LIMIT: 15,               // Jumlah maksimum item di "File Terbaru"
 
