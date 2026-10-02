@@ -111,13 +111,16 @@ if ("serviceWorker" in navigator) {
   const dismissBtn = document.getElementById("installDismissBtn");
   let deferredPrompt = null;
 
-  // Jangan tampilkan lagi kalau user pernah menutupnya manual
-  const dismissed = localStorage.getItem("dropshare-install-dismissed") === "1";
+  // Catatan: "ditutup" di sini SENGAJA cuma berlaku untuk sesi halaman ini saja
+  // (variabel biasa, bukan localStorage/sessionStorage). Begitu halaman
+  // di-refresh, banner akan muncul lagi dari awal kalau browser masih
+  // menganggap app ini installable.
+  let dismissedThisSession = false;
 
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    if (!dismissed) {
+    if (!dismissedThisSession) {
       banner.style.display = "flex";
     }
   });
@@ -135,12 +138,50 @@ if ("serviceWorker" in navigator) {
 
   dismissBtn.addEventListener("click", () => {
     banner.style.display = "none";
-    localStorage.setItem("dropshare-install-dismissed", "1");
+    dismissedThisSession = true;
   });
 
   window.addEventListener("appinstalled", () => {
     banner.style.display = "none";
     showToast("DropShare berhasil diinstal! Coba bagikan file JSON dari WhatsApp.", "success");
+  });
+})();
+
+/* ==========================================================================
+   TUTORIAL: Lightbox zoom untuk gambar step-by-step.
+   Berjalan aman di halaman manapun - kalau elemennya gak ada, gak ngapa-ngapain.
+   ========================================================================== */
+(function initTutorialImages() {
+  const images = document.querySelectorAll(".step-img");
+  if (images.length === 0) return;
+
+  const lightboxOverlay = document.getElementById("lightboxOverlay");
+  const lightboxImg = document.getElementById("lightboxImg");
+  const lightboxClose = document.getElementById("lightboxClose");
+  if (!lightboxOverlay) return;
+
+  function openLightbox(src, alt) {
+    lightboxImg.src = src;
+    lightboxImg.alt = alt || "";
+    lightboxOverlay.classList.add("show");
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeLightbox() {
+    lightboxOverlay.classList.remove("show");
+    document.body.style.overflow = "";
+  }
+
+  images.forEach((img) => {
+    img.addEventListener("click", () => openLightbox(img.src, img.alt));
+  });
+
+  lightboxClose.addEventListener("click", closeLightbox);
+  lightboxOverlay.addEventListener("click", (e) => {
+    if (e.target === lightboxOverlay) closeLightbox();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeLightbox();
   });
 })();
 
