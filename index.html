@@ -421,14 +421,52 @@ svg { display:block; }
   font-size:13.5px; color: var(--text); margin-bottom:10px; line-height:1.5;
 }
 .tutorial-step .step-text strong { color: var(--accent); }
-.tutorial-step .step-img {
-  width:100%; max-width:280px; border-radius:14px; border:1px solid var(--glass-border);
-  box-shadow: var(--card-shadow); display:block; background: var(--input-bg);
+.step-img-wrap {
+  position:relative; width:100%; max-width:280px; aspect-ratio: 16/10;
+  border-radius:14px; overflow:hidden; border:1px solid var(--glass-border);
+  box-shadow: var(--card-shadow); background: var(--input-bg); cursor:zoom-in;
 }
-.tutorial-connector {
-  width:2px; flex-shrink:0; background: linear-gradient(var(--glass-border), transparent);
-  margin-left:13px;
+.step-img-wrap .step-img {
+  width:100%; height:100%; object-fit:cover; display:block;
+  position:relative; z-index:2; opacity:0; transition: opacity .3s ease;
 }
+.step-img-wrap.loaded .step-img { opacity:1; }
+.step-img-skeleton {
+  position:absolute; inset:0; z-index:1;
+  background: linear-gradient(90deg, var(--input-bg) 25%, var(--glass-border) 50%, var(--input-bg) 75%);
+  background-size: 200% 100%; animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.step-img-wrap.loaded .step-img-skeleton, .step-img-wrap.error .step-img-skeleton { display:none; }
+.step-img-fallback {
+  position:absolute; inset:0; z-index:1; display:none;
+  flex-direction:column; align-items:center; justify-content:center; gap:6px;
+  color: var(--text-soft); font-size:11px; text-align:center; padding:10px;
+}
+.step-img-fallback svg { width:26px; height:26px; opacity:.6; }
+.step-img-wrap.error .step-img-fallback { display:flex; }
+.step-img-wrap.error .step-img { display:none; }
+.step-img-wrap.error { cursor:default; }
+
+/* --- Lightbox (zoom gambar tutorial) --- */
+.lightbox-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.88); z-index:1000;
+  display:none; align-items:center; justify-content:center; padding:24px;
+  animation: lightbox-fade .2s ease;
+}
+.lightbox-overlay.show { display:flex; }
+@keyframes lightbox-fade { from { opacity:0; } to { opacity:1; } }
+.lightbox-overlay .lightbox-img {
+  max-width:94vw; max-height:86vh; border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.5);
+  object-fit:contain;
+}
+.lightbox-close {
+  position:absolute; top:max(18px, env(safe-area-inset-top, 0px)); right:18px;
+  width:40px; height:40px; border-radius:50%; border:none; cursor:pointer;
+  background:rgba(255,255,255,.15); color:#fff; display:flex; align-items:center; justify-content:center;
+  backdrop-filter: blur(8px);
+}
+.lightbox-close svg { width:20px; height:20px; }
 
 /* Spinner */
 .spinner {
@@ -669,7 +707,14 @@ a:focus-visible, button:focus-visible, input:focus-visible {
       <div class="step-num">1</div>
       <div class="step-body">
         <div class="step-text">Ketuk tombol <strong>"Instal"</strong> di banner atas halaman ini (sekali saja). DropShare akan muncul sebagai aplikasi di layar utama HP kamu.</div>
-        <img class="step-img" src="tutorial/step1.png" alt="Langkah 1: Install DropShare" loading="lazy">
+        <div class="step-img-wrap">
+          <img class="step-img" src="tutorial/step1.png" alt="Langkah 1: Install DropShare" loading="lazy">
+          <div class="step-img-skeleton"></div>
+          <div class="step-img-fallback">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span>Gambar belum tersedia</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -677,7 +722,14 @@ a:focus-visible, button:focus-visible, input:focus-visible {
       <div class="step-num">2</div>
       <div class="step-body">
         <div class="step-text">Buka chat WhatsApp yang ada file <strong>.json</strong>-nya, lalu <strong>tekan lama (long press)</strong> pesan file tersebut.</div>
-        <img class="step-img" src="tutorial/step2.png" alt="Langkah 2: Buka chat berisi file JSON" loading="lazy">
+        <div class="step-img-wrap">
+          <img class="step-img" src="tutorial/step2.png" alt="Langkah 2: Buka chat berisi file JSON" loading="lazy">
+          <div class="step-img-skeleton"></div>
+          <div class="step-img-fallback">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span>Gambar belum tersedia</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -685,7 +737,14 @@ a:focus-visible, button:focus-visible, input:focus-visible {
       <div class="step-num">3</div>
       <div class="step-body">
         <div class="step-text">Ketuk titik tiga <strong>⋮</strong> di pojok kanan atas, lalu pilih <strong>"Bagikan"</strong>.</div>
-        <img class="step-img" src="tutorial/step3.png" alt="Langkah 3: Pilih menu Bagikan" loading="lazy">
+        <div class="step-img-wrap">
+          <img class="step-img" src="tutorial/step3.png" alt="Langkah 3: Pilih menu Bagikan" loading="lazy">
+          <div class="step-img-skeleton"></div>
+          <div class="step-img-fallback">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span>Gambar belum tersedia</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -693,7 +752,14 @@ a:focus-visible, button:focus-visible, input:focus-visible {
       <div class="step-num">4</div>
       <div class="step-body">
         <div class="step-text">Pilih ikon <strong>DropShare</strong> dari daftar aplikasi yang muncul.</div>
-        <img class="step-img" src="tutorial/step4.png" alt="Langkah 4: Pilih DropShare dari daftar share" loading="lazy">
+        <div class="step-img-wrap">
+          <img class="step-img" src="tutorial/step4.png" alt="Langkah 4: Pilih DropShare dari daftar share" loading="lazy">
+          <div class="step-img-skeleton"></div>
+          <div class="step-img-fallback">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span>Gambar belum tersedia</span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -701,7 +767,14 @@ a:focus-visible, button:focus-visible, input:focus-visible {
       <div class="step-num">5</div>
       <div class="step-body">
         <div class="step-text">Selesai! File otomatis tersimpan ke HP. Kalau mau sekalian dapat <strong>link download</strong>, tinggal ketuk tombol "Ubah File Ini Jadi Link".</div>
-        <img class="step-img" src="tutorial/step5.png" alt="Langkah 5: File tersimpan dan siap jadi link" loading="lazy">
+        <div class="step-img-wrap">
+          <img class="step-img" src="tutorial/step5.png" alt="Langkah 5: File tersimpan dan siap jadi link" loading="lazy">
+          <div class="step-img-skeleton"></div>
+          <div class="step-img-fallback">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            <span>Gambar belum tersedia</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -714,6 +787,14 @@ a:focus-visible, button:focus-visible, input:focus-visible {
 
 <!-- Toast container -->
 <div class="toast-wrap" id="toastWrap"></div>
+
+<!-- Lightbox zoom gambar tutorial -->
+<div class="lightbox-overlay" id="lightboxOverlay">
+  <button class="lightbox-close" id="lightboxClose" aria-label="Tutup">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  </button>
+  <img class="lightbox-img" id="lightboxImg" src="" alt="">
+</div>
 
 <!-- Urutan penting: Firebase SDK -> config.js -> script.js -->
 <script src="https://www.gstatic.com/firebasejs/12.18.0/firebase-app-compat.js"></script>
