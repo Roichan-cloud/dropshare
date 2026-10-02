@@ -398,6 +398,38 @@ svg { display:block; }
 .recent-item .recent-arrow { color: var(--text-soft); flex-shrink:0; }
 .recent-empty { font-size:13px; color: var(--text-soft); text-align:center; padding:8px 0; }
 
+/* --- Kartu Tutorial (cara pakai fitur Bagikan otomatis) --- */
+.tutorial-card { margin-top:20px; }
+.tutorial-title {
+  font-size:15px; font-weight:700; margin-bottom:4px;
+  display:flex; align-items:center; gap:8px; color: var(--text);
+}
+.tutorial-title svg { width:18px; height:18px; color: var(--accent); flex-shrink:0; }
+.tutorial-sub { font-size:12.5px; color: var(--text-soft); margin-bottom:18px; }
+.tutorial-step {
+  display:flex; gap:14px; margin-bottom:22px;
+}
+.tutorial-step:last-child { margin-bottom:0; }
+.tutorial-step .step-num {
+  width:28px; height:28px; border-radius:50%; flex-shrink:0;
+  background: linear-gradient(135deg, var(--accent-2), var(--accent)); color: var(--on-accent);
+  display:flex; align-items:center; justify-content:center;
+  font-weight:800; font-size:13px; font-family:'Poppins',sans-serif;
+}
+.tutorial-step .step-body { flex:1; min-width:0; }
+.tutorial-step .step-text {
+  font-size:13.5px; color: var(--text); margin-bottom:10px; line-height:1.5;
+}
+.tutorial-step .step-text strong { color: var(--accent); }
+.tutorial-step .step-img {
+  width:100%; max-width:280px; border-radius:14px; border:1px solid var(--glass-border);
+  box-shadow: var(--card-shadow); display:block; background: var(--input-bg);
+}
+.tutorial-connector {
+  width:2px; flex-shrink:0; background: linear-gradient(var(--glass-border), transparent);
+  margin-left:13px;
+}
+
 /* Spinner */
 .spinner {
   width:16px; height:16px;
@@ -623,6 +655,55 @@ a:focus-visible, button:focus-visible, input:focus-visible {
       File Terbaru
     </h3>
     <div id="recentFilesList"></div>
+  </div>
+
+  <!-- ============== KARTU: TUTORIAL BAGIKAN OTOMATIS ============== -->
+  <div class="card tutorial-card">
+    <h3 class="tutorial-title">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.6 15.4 6.4M8.6 13.4l6.8 4.2"/></svg>
+      Cara Pakai Fitur Bagikan Otomatis
+    </h3>
+    <p class="tutorial-sub">Install DropShare sekali, setelah itu bisa langsung kirim file JSON dari WhatsApp tanpa buka aplikasi ini dulu.</p>
+
+    <div class="tutorial-step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-text">Ketuk tombol <strong>"Instal"</strong> di banner atas halaman ini (sekali saja). DropShare akan muncul sebagai aplikasi di layar utama HP kamu.</div>
+        <img class="step-img" src="tutorial/step1.png" alt="Langkah 1: Install DropShare" loading="lazy">
+      </div>
+    </div>
+
+    <div class="tutorial-step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <div class="step-text">Buka chat WhatsApp yang ada file <strong>.json</strong>-nya, lalu <strong>tekan lama (long press)</strong> pesan file tersebut.</div>
+        <img class="step-img" src="tutorial/step2.png" alt="Langkah 2: Buka chat berisi file JSON" loading="lazy">
+      </div>
+    </div>
+
+    <div class="tutorial-step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-text">Ketuk titik tiga <strong>⋮</strong> di pojok kanan atas, lalu pilih <strong>"Bagikan"</strong>.</div>
+        <img class="step-img" src="tutorial/step3.png" alt="Langkah 3: Pilih menu Bagikan" loading="lazy">
+      </div>
+    </div>
+
+    <div class="tutorial-step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <div class="step-text">Pilih ikon <strong>DropShare</strong> dari daftar aplikasi yang muncul.</div>
+        <img class="step-img" src="tutorial/step4.png" alt="Langkah 4: Pilih DropShare dari daftar share" loading="lazy">
+      </div>
+    </div>
+
+    <div class="tutorial-step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <div class="step-text">Selesai! File otomatis tersimpan ke HP. Kalau mau sekalian dapat <strong>link download</strong>, tinggal ketuk tombol "Ubah File Ini Jadi Link".</div>
+        <img class="step-img" src="tutorial/step5.png" alt="Langkah 5: File tersimpan dan siap jadi link" loading="lazy">
+      </div>
+    </div>
   </div>
 
   <footer class="credit">
