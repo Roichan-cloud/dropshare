@@ -1,6 +1,50 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+<script>
+/* ==========================================================================
+   DEBUG BANNER — menangkap error JavaScript apapun dan nampilinnya langsung
+   di halaman (kotak merah di atas), supaya bisa di-screenshot tanpa perlu
+   komputer/DevTools. Taruh PALING ATAS biar nangkep error dari file manapun,
+   termasuk kalau config.js sendiri gagal dimuat.
+   ========================================================================== */
+window.__dropshareErrors = [];
+
+function __dropshareRenderErrorBanner() {
+  function doRender() {
+    var banner = document.getElementById("dropshareErrorBanner");
+    if (!banner) {
+      banner = document.createElement("div");
+      banner.id = "dropshareErrorBanner";
+      banner.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:999999;background:#dc2626;color:#fff;font-family:monospace;font-size:11px;line-height:1.5;padding:12px;max-height:45vh;overflow:auto;white-space:pre-wrap;word-break:break-all;box-shadow:0 4px 12px rgba(0,0,0,.4);";
+      document.body.appendChild(banner);
+    }
+    banner.textContent = "⚠ DropShare Debug — " + window.__dropshareErrors.length + " error terdeteksi:\n\n" +
+      window.__dropshareErrors.map(function (err, i) {
+        var loc = err.filename ? " (" + err.filename.split("/").pop() + ":" + err.lineno + ":" + err.colno + ")" : "";
+        return (i + 1) + ". " + err.message + loc;
+      }).join("\n\n");
+  }
+  if (document.body) doRender();
+  else document.addEventListener("DOMContentLoaded", doRender);
+}
+
+window.addEventListener("error", function (e) {
+  window.__dropshareErrors.push({
+    message: e.message || "Error tidak diketahui",
+    filename: e.filename,
+    lineno: e.lineno,
+    colno: e.colno
+  });
+  __dropshareRenderErrorBanner();
+});
+
+window.addEventListener("unhandledrejection", function (e) {
+  var msg = (e.reason && e.reason.message) ? e.reason.message : String(e.reason);
+  window.__dropshareErrors.push({ message: "Promise error: " + msg });
+  __dropshareRenderErrorBanner();
+});
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DropShare — Bagikan File Secepat Kilat</title>
